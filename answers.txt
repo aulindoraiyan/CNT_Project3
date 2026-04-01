@@ -1,0 +1,4 @@
+In a text file, answer the following question(s):
+a. How could the “secure” server and client framework above be
+compromised?
+b. How could you improve the framework?
