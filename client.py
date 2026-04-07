@@ -24,74 +24,99 @@ class SecureClient:
         self.public_key = None
         self.server_public_key = None
 
-    def run(self):
-        print("Starting client...")
-        print("Creating RSA keypair")
-        self.private_key, self.public_key = generate_rsa_keypair()
-        print("RSA keypair created")
+    def run(self, message="Hello"):
+        control_sock = None
+        data_sock = None
 
-        print("Creating client socket")
-        control_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            print("Starting client...")
+            print("Creating RSA keypair")
+            self.private_key, self.public_key = generate_rsa_keypair()
+            print("RSA keypair created")
 
-        print("Connecting to server")
-        control_sock.connect((self.host, self.control_port))
-        control_sock.sendall(b"connect")
+            print("Creating client socket")
+            control_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-        data_port = int(control_sock.recv(BUFFER_SIZE).decode())
-        control_sock.close()
+            print("Connecting to server")
+            control_sock.connect((self.host, self.control_port))
+            control_sock.sendall(b"connect")
 
-        print("Creating data socket")
-        data_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        data_sock.connect((self.host, data_port))
+            data_port_response = control_sock.recv(BUFFER_SIZE).decode().strip()
+            if not data_port_response.isdigit():
+                raise ValueError(f"Invalid data port received from server: {data_port_response}")
 
-        print("Requesting tunnel")
-        tunnel_packet = {
-            "command": "tunnel",
-            "client_public_key": serialize_public_key(self.public_key)
-        }
-        data_sock.sendall(json.dumps(tunnel_packet).encode())
+            data_port = int(data_port_response)
+            control_sock.close()
+            control_sock = None
 
-        tunnel_response = json.loads(data_sock.recv(BUFFER_SIZE).decode())
-        self.server_public_key = deserialize_public_key(
-            tunnel_response["server_public_key"]
-        )
+            print("Creating data socket")
+            data_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            data_sock.connect((self.host, data_port))
 
-        print("Server public key received")
-        print("Tunnel established")
+            print("Requesting tunnel")
+            tunnel_packet = {
+                "command": "tunnel",
+                "client_public_key": serialize_public_key(self.public_key)
+            }
+            data_sock.sendall(json.dumps(tunnel_packet).encode())
 
-        message = "Hello"
-        print(f"Encrypting message: {message}")
+            tunnel_response_raw = data_sock.recv(BUFFER_SIZE).decode()
+            tunnel_response = json.loads(tunnel_response_raw)
 
-        encrypted_message = encrypt_message(message, self.server_public_key)
-        encrypted_display = (
-            encrypted_message.decode(errors="ignore")
-            if isinstance(encrypted_message, bytes)
-            else str(encrypted_message)
-        )
+            if "server_public_key" not in tunnel_response:
+                raise ValueError("Server did not return a public key during tunnel phase.")
 
-        print(f"Sending encrypted message: {encrypted_display}")
+            self.server_public_key = deserialize_public_key(
+                tunnel_response["server_public_key"]
+            )
 
-        post_packet = {
-            "command": "post",
-            "message": encrypted_display
-        }
-        data_sock.sendall(json.dumps(post_packet).encode())
+            print("Server public key received")
+            print("Tunnel established")
 
-        response = json.loads(data_sock.recv(BUFFER_SIZE).decode())
-        encrypted_hash = response.get("encrypted_hash")
+            print(f"Encrypting message: {message}")
+            encrypted_message = encrypt_message(message, self.server_public_key)
 
-        print("Received hash")
-        server_hash = decrypt_message(encrypted_hash.encode(), self.private_key)
+            encrypted_display = (
+                encrypted_message.decode(errors="ignore")
+                if isinstance(encrypted_message, bytes)
+                else str(encrypted_message)
+            )
 
-        print("Computing hash")
-        local_hash = compute_sha256(message)
+            print(f"Sending encrypted message: {encrypted_display}")
 
-        if local_hash == server_hash:
-            print("Secure")
-        else:
-            print("Compromised")
+            post_packet = {
+                "command": "post",
+                "message": encrypted_display
+            }
+            data_sock.sendall(json.dumps(post_packet).encode())
 
-        data_sock.close()
+            response_raw = data_sock.recv(BUFFER_SIZE).decode()
+            response = json.loads(response_raw)
+
+            if "encrypted_hash" not in response:
+                raise ValueError("Server response does not contain 'encrypted_hash'.")
+
+            encrypted_hash = response["encrypted_hash"]
+
+            print("Received hash")
+            server_hash = decrypt_message(encrypted_hash.encode(), self.private_key)
+
+            print("Computing hash")
+            local_hash = compute_sha256(message)
+
+            if local_hash == server_hash:
+                print("Secure")
+            else:
+                print("Compromised")
+
+        except Exception as e:
+            print(f"[CLIENT ERROR] {e}")
+
+        finally:
+            if control_sock:
+                control_sock.close()
+            if data_sock:
+                data_sock.close()
 
 
 if __name__ == "__main__":
