@@ -1,5 +1,5 @@
 import hashlib
-
+from Crypto.Cipher import PKCS1_OAEP
 
 def generate_rsa_keypair():
     """
@@ -32,45 +32,11 @@ def deserialize_public_key(key_data):
     """
     return key_data
 
-
 def encrypt_message(plaintext, public_key):
-    """
-    TODO:
-    Encrypt plaintext using the given public key.
-
-    Args:
-        plaintext (str): message to encrypt
-        public_key: recipient's public key
-
-    Returns:
-        bytes or encoded string
-    """
-    return b"ENCRYPTED_PLACEHOLDER"
-
+    return PKCS1_OAEP.new(public_key).encrypt(plaintext.encode('utf-8'))
 
 def decrypt_message(ciphertext, private_key):
-    """
-    TODO:
-    Decrypt ciphertext using the given private key.
-
-    Args:
-        ciphertext (bytes): encrypted data
-        private_key: owner's private key
-
-    Returns:
-        str: decrypted plaintext
-    """
-    return "DECRYPTED_PLACEHOLDER"
-
+    return PKCS1_OAEP.new(private_key).decrypt(ciphertext).decode('utf-8')
 
 def compute_sha256(message):
-    """
-    Compute SHA256 hash of a string message.
-
-    Args:
-        message (str)
-
-    Returns:
-        str: hexadecimal SHA256 digest
-    """
     return hashlib.sha256(message.encode()).hexdigest()
