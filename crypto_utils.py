@@ -67,7 +67,16 @@ def encrypt_message(plaintext, public_key):
     Returns:
         bytes or encoded string
     """
-    return b"ENCRYPTED_PLACEHOLDER"
+
+    ciphertext = public_key.encrypt(
+        plaintext.encode("utf-8"),
+        padding.OAEP(
+            mgf=padding.MGF1(algorithm=hashes.SHA256()),
+            algorithm=hashes.SHA256(),
+            label=None
+        )
+    )
+    return ciphertext
 
 
 def decrypt_message(ciphertext, private_key):
@@ -82,7 +91,15 @@ def decrypt_message(ciphertext, private_key):
     Returns:
         str: decrypted plaintext
     """
-    return "DECRYPTED_PLACEHOLDER"
+    plaintext = private_key.decrypt(
+        ciphertext,
+        padding.OAEP(
+            mgf=padding.MGF1(algorithm=hashes.SHA256()),
+            algorithm=hashes.SHA256(),
+            label=None
+        )
+    )
+    return plaintext.decode("utf-8")
 
 
 def compute_sha256(message):
