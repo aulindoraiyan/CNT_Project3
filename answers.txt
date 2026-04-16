@@ -1,4 +1,14 @@
-In a text file, answer the following question(s):
-a. How could the “secure” server and client framework above be
-compromised?
+a. How could the “secure” server and client framework above be compromised?
+
+The server and client framework established in this project is vulnerable to
+man in the middle and replay attacks. The initial RSA key exchange does not
+have authentication, and therefore an attacker can substitute their own keys
+during the tunnel phase.
+
+
 b. How could you improve the framework?
+
+The framework could be improved through the implementation of digital 
+certificates, particularly to verify identities during the handshake,
+furthermore implementing timestamping to prevent message replays and RSA to 
+create an AES key governing data transmission.
