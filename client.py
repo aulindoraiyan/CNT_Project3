@@ -1,5 +1,6 @@
 import socket
 import json
+import base64
 
 from crypto_utils import (
     generate_rsa_keypair,
@@ -76,17 +77,14 @@ class SecureClient:
             print(f"Encrypting message: {message}")
             encrypted_message = encrypt_message(message, self.server_public_key)
 
-            encrypted_display = (
-                encrypted_message.decode(errors="ignore")
-                if isinstance(encrypted_message, bytes)
-                else str(encrypted_message)
-            )
+            # Base64-encode the encrypted bytes for JSON transport
+            encrypted_b64 = base64.b64encode(encrypted_message).decode()
 
-            print(f"Sending encrypted message: {encrypted_display}")
+            print(f"Sending encrypted message")
 
             post_packet = {
                 "command": "post",
-                "message": encrypted_display
+                "message": encrypted_b64
             }
             data_sock.sendall(json.dumps(post_packet).encode())
 
@@ -99,7 +97,9 @@ class SecureClient:
             encrypted_hash = response["encrypted_hash"]
 
             print("Received hash")
-            server_hash = decrypt_message(encrypted_hash.encode(), self.private_key)
+            # Base64-decode the encrypted hash before decryption
+            encrypted_hash_bytes = base64.b64decode(encrypted_hash)
+            server_hash = decrypt_message(encrypted_hash_bytes, self.private_key)
 
             print("Computing hash")
             local_hash = compute_sha256(message)
