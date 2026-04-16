@@ -1,7 +1,7 @@
 import hashlib
-from cryptography.hazmat.primitives.asymmetric import rsa, padding
-from cryptography.hazmat.primitives import serialization, hashes
-from cryptography.hazmat.primitives.serialization import load_pem_public_key
+from Crypto.PublicKey import RSA
+from Crypto.Cipher import PKCS1_OAEP
+from Crypto.Hash import SHA256
 
 def generate_rsa_keypair():
 
@@ -13,13 +13,10 @@ def generate_rsa_keypair():
         (private_key, public_key)
     """
 
-    private_key = rsa.generate_private_key(
-        public_exponent=65537, 
-        key_size=2048
-        )
-    
-    public_key = private_key.public_key()
-    
+    key = RSA.generate(2048)
+    private_key = key
+    public_key = key.publickey()
+
     return private_key, public_key
 
 
@@ -34,12 +31,7 @@ def serialize_public_key(public_key):
         PEM text string
     """
 
-    pem = public_key.public_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PublicFormat.SubjectPublicKeyInfo
-    )
-    
-    return pem.decode("utf-8")
+    return public_key.export_key().decode("utf-8")
 
 
 def deserialize_public_key(key_data):
@@ -50,8 +42,7 @@ def deserialize_public_key(key_data):
     back into a usable public key object.
     """
 
-    public_key = load_pem_public_key(key_data.encode("utf-8"))
-    return public_key
+    return RSA.import_key(key_data)
     
 
 
@@ -68,14 +59,8 @@ def encrypt_message(plaintext, public_key):
         bytes or encoded string
     """
 
-    ciphertext = public_key.encrypt(
-        plaintext.encode("utf-8"),
-        padding.OAEP(
-            mgf=padding.MGF1(algorithm=hashes.SHA256()),
-            algorithm=hashes.SHA256(),
-            label=None
-        )
-    )
+    cipher = PKCS1_OAEP.new(public_key, hashAlgo=SHA256)
+    ciphertext = cipher.encrypt(plaintext.encode("utf-8"))
     return ciphertext
 
 
@@ -91,14 +76,8 @@ def decrypt_message(ciphertext, private_key):
     Returns:
         str: decrypted plaintext
     """
-    plaintext = private_key.decrypt(
-        ciphertext,
-        padding.OAEP(
-            mgf=padding.MGF1(algorithm=hashes.SHA256()),
-            algorithm=hashes.SHA256(),
-            label=None
-        )
-    )
+    cipher = PKCS1_OAEP.new(private_key, hashAlgo=SHA256)
+    plaintext = cipher.decrypt(ciphertext)
     return plaintext.decode("utf-8")
 
 
